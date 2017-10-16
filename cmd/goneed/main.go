@@ -2,12 +2,12 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	goneed "github.com/repejota/go-need"
 )
@@ -29,7 +29,10 @@ func getFiles(spath string) []string {
 }
 
 func main() {
-	project := goneed.NewProject("./")
+	pathPtr := flag.String("path", ".", "path to process")
+	flag.Parse()
+
+	project := goneed.NewProject(*pathPtr)
 	project.Files = getFiles(project.SourcePath)
 
 	for _, filePath := range project.Files {
@@ -56,26 +59,16 @@ func main() {
 					Number:      lineno,
 					Src:         strings.TrimSpace(fs.Text()),
 				}
+				todo.FileLastMod = todo.GetFileAge()
 				project.ToDos = append(project.ToDos, *todo)
-			}
-			if strings.Contains(fs.Text(), `// FIXME`) {
-				fixme := &goneed.Line{
-					FilePath:    filePath,
-					FileLastMod: fi.ModTime(),
-					Number:      lineno,
-					Src:         strings.TrimSpace(fs.Text()),
-				}
-				project.FixMes = append(project.FixMes, *fixme)
 			}
 		}
 	}
 
-	now := time.Now()
 	for _, todo := range project.ToDos {
-		if todo.IsOutdated(now) {
+		if todo.IsOutdated() {
 			project.ExitCode = 1
-			age := todo.GetAge(now)
-			fmt.Printf("%s:%d - %v\n%s\n\n", todo.FilePath, todo.Number, age, todo.Src)
+			fmt.Printf("%s:%d - %v\n%s\n\n", todo.FilePath, todo.Number, todo.FileLastMod, todo.Src)
 		}
 	}
 
